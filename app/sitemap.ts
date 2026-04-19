@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { getAllPlayers, POSITIONS, PITCHER_POSITIONS } from "@/lib/data";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://fantasyedge.app";
+  const baseUrl = "https://fantasybaseballedge.com";
   const now = new Date();
 
   const staticPages: MetadataRoute.Sitemap = [
