@@ -12,12 +12,15 @@ export const metadata: Metadata = {
   },
   description:
     "Free fantasy baseball rankings, player projections, and draft tools powered by ZiPS 2026 projections. Compare players, find sleepers, and dominate your draft.",
-  metadataBase: new URL("https://fantasyedge.app"),
+  metadataBase: new URL("https://fantasybaseballedge.com"),
   openGraph: {
     siteName: "FantasyEdge",
     type: "website",
   },
   robots: { index: true, follow: true },
+  verification: {
+    google: "g4jPl0zXdn7-nkoBN4U1cVYWs0Si6K79tyEsrzRzXhA",
+  },
 };
 
 function Nav() {
