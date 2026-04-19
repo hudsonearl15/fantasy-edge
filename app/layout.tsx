@@ -85,6 +85,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.className} dark`}>
+      <head>
+        <meta name="google-site-verification" content="g4jPl0zXdn7-nkoBN4U1cVYWs0Si6K79tyEsrzRzXhA" />
+      </head>
       <body className="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col">
         <Nav />
         <main className="flex-1">{children}</main>
