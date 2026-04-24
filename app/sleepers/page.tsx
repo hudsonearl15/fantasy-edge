@@ -20,7 +20,7 @@ function ValueRow({
   return (
     <Link
       href={`/player/${player.slug}`}
-      className="grid grid-cols-[1fr_3rem_3.5rem_4.5rem_4rem_4.5rem] items-center gap-2 px-4 py-2.5 hover:bg-zinc-800/50 transition border-b border-zinc-800/50 last:border-0"
+      className="grid grid-cols-[1fr_3.5rem_4rem_3.5rem_4rem] items-center gap-2 px-4 py-2.5 hover:bg-zinc-800/50 transition border-b border-zinc-800/50 last:border-0"
     >
       <div className="min-w-0">
         <span className="text-sm font-medium text-white truncate block">
@@ -30,7 +30,6 @@ function ValueRow({
           {player.teamAbbr} &middot; {player.pos}
         </span>
       </div>
-      <span className="text-sm text-zinc-400 text-right">{player.pos}</span>
       <span className="text-sm text-emerald-400 font-semibold text-right">
         {player.fantasy.FPTS.toFixed(0)}
       </span>
@@ -66,9 +65,8 @@ export default function SleepersPage() {
   const busts = [...valued].sort((a, b) => a.gap - b.gap).slice(0, 50);
 
   const headers = (
-    <div className="grid grid-cols-[1fr_3rem_3.5rem_4.5rem_4rem_4.5rem] gap-2 px-4 py-2 bg-zinc-900 border-b border-zinc-800 text-xs text-zinc-500 font-medium">
+    <div className="grid grid-cols-[1fr_3.5rem_4rem_3.5rem_4rem] gap-2 px-4 py-2 bg-zinc-900 border-b border-zinc-800 text-xs text-zinc-500 font-medium">
       <span>Player</span>
-      <span className="text-right">Pos</span>
       <span className="text-right">FPTS</span>
       <span className="text-right">Value #</span>
       <span className="text-right">ADP</span>
