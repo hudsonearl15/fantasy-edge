@@ -259,56 +259,9 @@ def merge_advanced_stats(new_stats: dict, existing_stats: dict, player_type: str
 
 
 # ---------------------------------------------------------------------------
-# FPTS pacing — project current stats to a full season
-# ---------------------------------------------------------------------------
-TARGET_PA   = 600    # full season for a hitter
-TARGET_IP_SP = 180   # full season for a starter
-TARGET_IP_RP = 65    # full season for a reliever
-
-
-def pace_hitter_fpts(stats: dict, proj_fpts: float) -> tuple[float, float]:
-    g  = stats.get("G", 0)
-    pa = stats.get("PA", 0)
-    if g < 5 or pa < 15:
-        # Too few games — return the original ZiPS projection unchanged
-        return proj_fpts, round(proj_fpts / TARGET_PA, 2)
-
-    scale = min(TARGET_PA / pa, 8.0)
-
-    pts  = (stats.get("R",   0) * 1.0 +
-            stats.get("HR",  0) * 4.0 +
-            stats.get("RBI", 0) * 1.0 +
-            stats.get("SB",  0) * 2.0 +
-            stats.get("BB",  0) * 0.5 +
-            stats.get("H",   0) * 0.5 +
-            stats.get("2B",  0) * 1.0 +
-            stats.get("3B",  0) * 2.0) * scale
-
-    fpts_g = pts / (g * scale) if g * scale > 0 else 0.0
-    return round(pts, 1), round(fpts_g, 2)
-
-
-def pace_pitcher_fpts(stats: dict, pos: str, proj_fpts: float) -> tuple[float, float]:
-    g  = stats.get("G", 0)
-    ip = stats.get("IP", 0.0)
-    if g < 2 or ip < 5:
-        return proj_fpts, round(proj_fpts / (TARGET_IP_SP if pos == "SP" else TARGET_IP_RP), 2)
-
-    target = TARGET_IP_SP if pos == "SP" else TARGET_IP_RP
-    scale  = min(target / ip, 12.0)
-
-    pts = (stats.get("W",   0) * 5.0 +
-           stats.get("SV",  0) * 5.0 +
-           stats.get("HLD", 0) * 2.0 +
-           stats.get("SO",  0) * 1.0 +
-           stats.get("IP",  0) * 1.0) * scale
-
-    fpts_ip = pts / (ip * scale) if ip * scale > 0 else 0.0
-    return round(pts, 1), round(fpts_ip, 2)
-
-
-# ---------------------------------------------------------------------------
 # Update players in-place
+# Rankings and FPTS are intentionally NOT changed — ZiPS projections are the
+# authoritative ranking source. We only update the live stat display fields.
 # ---------------------------------------------------------------------------
 def update_players(players: list[dict], lookup: dict, player_type: str) -> tuple[int, int]:
     matched = 0
@@ -323,37 +276,25 @@ def update_players(players: list[dict], lookup: dict, player_type: str) -> tuple
         s = row["stat"]
         orig_stats = dict(player["stats"])
 
-        # Preserve ZiPS projections on first update
+        # Preserve original ZiPS projections on first update (one-time)
         if "projectedStats" not in player:
             player["projectedStats"] = orig_stats
 
-        # Update stats with current season actuals
+        # Update live stats for display — does NOT touch FPTS or rankings
         if player_type == "hitter":
             new_stats = extract_hitter_stats(s)
             merge_advanced_stats(new_stats, orig_stats, "hitter")
             player["stats"] = new_stats
-            fpts, fpts_g = pace_hitter_fpts(new_stats, player["fantasy"]["FPTS"])
-            player["fantasy"]["FPTS"]   = fpts
-            player["fantasy"]["FPTS_G"] = fpts_g
         else:
             new_stats = extract_pitcher_stats(s)
             merge_advanced_stats(new_stats, orig_stats, "pitcher")
             player["stats"] = new_stats
-            fpts, fpts_ip = pace_pitcher_fpts(new_stats, player.get("pos", "SP"), player["fantasy"]["FPTS"])
-            player["fantasy"]["FPTS"]    = fpts
-            player["fantasy"]["FPTS_IP"] = fpts_ip
 
-        # Update team if we got one from MLB API
+        # Update team if MLB API has a more current value
         if row.get("team"):
             player["team"] = row["team"]
 
     return matched, len(players)
-
-
-def re_rank(players: list[dict], key: str = "rank"):
-    players.sort(key=lambda p: p["fantasy"]["FPTS"], reverse=True)
-    for i, p in enumerate(players):
-        p[key] = i + 1
 
 
 # ---------------------------------------------------------------------------
@@ -409,15 +350,11 @@ def main():
     pm, pt = update_players(pitchers, pit_lookup, "pitcher")
     print(f"  Matched {pm}/{pt} pitchers")
 
-    # 5. Re-rank
-    re_rank(hitters, "rank")
-    re_rank(pitchers, "rank")
-
-    # 6. Rebuild all_players + search index
+    # 5. Rebuild all_players + search index
+    # Rankings (rank, overallRank) and FPTS are intentionally preserved from
+    # ZiPS — only raw stats were updated above for live display purposes.
     all_players = hitters + pitchers
-    all_players.sort(key=lambda p: p["fantasy"]["FPTS"], reverse=True)
-    for i, p in enumerate(all_players):
-        p["overallRank"] = i + 1
+    all_players.sort(key=lambda p: p.get("overallRank", 9999))
 
     search_index = [
         {"n": p["name"], "s": p["slug"], "t": p.get("teamAbbr", ""),
@@ -432,11 +369,17 @@ def main():
     save_json("all_players.json", all_players)
     save_json("search_index.json", search_index, indent=None)
 
-    print(f"\nDone! {hm + pm} players updated with {TODAY} stats.")
-    if hitters:
-        print(f"  Top hitter:  {hitters[0]['name']} — {hitters[0]['fantasy']['FPTS']} FPTS")
-    if pitchers:
-        print(f"  Top pitcher: {pitchers[0]['name']} — {pitchers[0]['fantasy']['FPTS']} FPTS")
+    # Show top-ranked players (by ZiPS rank, unchanged)
+    top_h = sorted(hitters, key=lambda p: p.get("rank", 9999))
+    top_p = sorted(pitchers, key=lambda p: p.get("rank", 9999))
+    print(f"\nDone! {hm + pm} players updated with {TODAY} live stats (rankings unchanged).")
+    if top_h:
+        p = top_h[0]
+        g = p["stats"].get("G", 0)
+        print(f"  #1 hitter:  {p['name']} — {g}G, {p['stats'].get('HR',0)} HR, .{str(p['stats'].get('AVG',0))[2:]} AVG (ZiPS FPTS: {p['fantasy']['FPTS']})")
+    if top_p:
+        p = top_p[0]
+        print(f"  #1 pitcher: {p['name']} — {p['stats'].get('IP',0)} IP, {p['stats'].get('ERA',0)} ERA, {p['stats'].get('SO',0)} K (ZiPS FPTS: {p['fantasy']['FPTS']})")
 
 
 if __name__ == "__main__":
